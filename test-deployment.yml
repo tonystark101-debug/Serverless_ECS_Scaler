@@ -1,0 +1,304 @@
+# Test Deployment Configuration for Serverless ECS Scaler
+# This file contains the configuration for testing the scaler with real AWS services
+
+service: serverless-ecs-scaler-test
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  stage: test
+  memorySize: 128
+  timeout: 30
+  
+  # IAM permissions for testing
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - ecs:DescribeServices
+            - ecs:UpdateService
+            - ecs:ListServices
+            - ecs:ListClusters
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - sqs:GetQueueAttributes
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:SendMessage
+            - sqs:GetQueueUrl
+            - sqs:ListQueues
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: "*"
+
+custom:
+  # Test configuration
+  testClusterName: "test-ecs-scaler-cluster"
+  testServiceName: "test-ecs-scaler-service"
+  testQueueName: "test-ecs-scaler-queue"
+  scaleUpTarget: 2
+  scaleDownThreshold: 1
+
+functions:
+  ecsScaler:
+    handler: src/scaler.lambda_handler
+    name: test-ecs-scaler
+    description: "Test ECS Scaler for validation"
+    environment:
+      SQS_QUEUE_URL: !Ref TestSQSQueue
+      ECS_CLUSTER_NAME: ${self:custom.testClusterName}
+      ECS_SERVICE_NAME: ${self:custom.testServiceName}
+      SCALE_UP_TARGET: ${self:custom.scaleUpTarget}
+      SCALE_DOWN_THRESHOLD: ${self:custom.scaleDownThreshold}
+    events:
+      # SQS trigger for immediate scaling
+      - sqs:
+          arn: !GetAtt TestSQSQueue.Arn
+          batchSize: 1
+          enabled: true
+      # EventBridge trigger for periodic monitoring
+      - schedule:
+          rate: rate(1 minute)
+          enabled: true
+          description: "Test ECS scaler monitoring"
+
+resources:
+  Resources:
+    # Test SQS Queue
+    TestSQSQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.testQueueName}
+        VisibilityTimeout: 300
+        MessageRetentionPeriod: 86400
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt TestSQSDeadLetterQueue.Arn
+          maxReceiveCount: 3
+
+    # Dead Letter Queue
+    TestSQSDeadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.testQueueName}-dlq
+        MessageRetentionPeriod: 1209600
+
+    # Test ECS Cluster
+    TestECSCluster:
+      Type: AWS::ECS::Cluster
+      Properties:
+        ClusterName: ${self:custom.testClusterName}
+        CapacityProviders:
+          - FARGATE
+        DefaultCapacityProviderStrategy:
+          - CapacityProvider: FARGATE
+            Weight: 1
+
+    # Test ECS Task Definition
+    TestECSTaskDefinition:
+      Type: AWS::ECS::TaskDefinition
+      Properties:
+        Family: test-ecs-scaler-task
+        RequiresCompatibilities:
+          - FARGATE
+        NetworkMode: awsvpc
+        Cpu: 256
+        Memory: 512
+        ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+        TaskRoleArn: !GetAtt ECSTaskRole.Arn
+        ContainerDefinitions:
+          - Name: test-container
+            Image: public.ecr.aws/amazonlinux/amazonlinux:latest
+            Command:
+              - /bin/sh
+              - -c
+              - |
+                echo "Test container started at $(date)"
+                echo "Processing message: $MESSAGE"
+                sleep 30
+                echo "Test container completed at $(date)"
+            Environment:
+              - Name: MESSAGE
+                Value: "Test message from ECS scaler"
+            LogConfiguration:
+              LogDriver: awslogs
+              Options:
+                awslogs-group: !Ref TestCloudWatchLogGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: ecs
+
+    # Test ECS Service
+    TestECSService:
+      Type: AWS::ECS::Service
+      Properties:
+        ServiceName: ${self:custom.testServiceName}
+        Cluster: !Ref TestECSCluster
+        TaskDefinition: !Ref TestECSTaskDefinition
+        DesiredCount: 0
+        LaunchType: FARGATE
+        NetworkConfiguration:
+          AwsvpcConfiguration:
+            AssignPublicIp: ENABLED
+            SecurityGroups:
+              - !Ref TestSecurityGroup
+            Subnets:
+              - !Ref TestSubnet1
+              - !Ref TestSubnet2
+      DependsOn: TestSubnet1RouteTableAssociation
+
+    # Security Group for ECS tasks
+    TestSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupName: test-ecs-scaler-sg
+        GroupDescription: Security group for test ECS tasks
+        VpcId: !Ref TestVPC
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 80
+            ToPort: 80
+            CidrIp: 0.0.0.0/0
+
+    # VPC for testing
+    TestVPC:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: 10.0.0.0/16
+        EnableDnsHostnames: true
+        EnableDnsSupport: true
+        Tags:
+          - Key: Name
+            Value: test-ecs-scaler-vpc
+
+    # Subnets
+    TestSubnet1:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId: !Ref TestVPC
+        CidrBlock: 10.0.1.0/24
+        AvailabilityZone: !Select [0, !GetAZs '']
+        MapPublicIpOnLaunch: true
+
+    TestSubnet2:
+      Type: AWS::EC2::Subnet
+      Properties:
+        VpcId: !Ref TestVPC
+        CidrBlock: 10.0.2.0/24
+        AvailabilityZone: !Select [1, !GetAZs '']
+        MapPublicIpOnLaunch: true
+
+    # Internet Gateway
+    TestInternetGateway:
+      Type: AWS::EC2::InternetGateway
+      Properties:
+        Tags:
+          - Key: Name
+            Value: test-ecs-scaler-igw
+
+    # Attach Internet Gateway to VPC
+    TestInternetGatewayAttachment:
+      Type: AWS::EC2::VPCGatewayAttachment
+      Properties:
+        VpcId: !Ref TestVPC
+        InternetGatewayId: !Ref TestInternetGateway
+
+    # Route Table
+    TestRouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        VpcId: !Ref TestVPC
+        Tags:
+          - Key: Name
+            Value: test-ecs-scaler-rt
+
+    # Route to Internet Gateway
+    TestRoute:
+      Type: AWS::EC2::Route
+      Properties:
+        RouteTableId: !Ref TestRouteTable
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref TestInternetGateway
+      DependsOn: TestInternetGatewayAttachment
+
+    # Associate Route Table with Subnets
+    TestSubnet1RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref TestSubnet1
+        RouteTableId: !Ref TestRouteTable
+
+    TestSubnet2RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        SubnetId: !Ref TestSubnet2
+        RouteTableId: !Ref TestRouteTable
+
+    # CloudWatch Log Group
+    TestCloudWatchLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /ecs/test-ecs-scaler
+        RetentionInDays: 7
+
+    # ECS Task Execution Role
+    ECSTaskExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: ecs-tasks.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+    # ECS Task Role
+    ECSTaskRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: ecs-tasks.amazonaws.com
+              Action: sts:AssumeRole
+
+  Outputs:
+    TestClusterName:
+      Description: "Test ECS Cluster Name"
+      Value: !Ref TestECSCluster
+      Export:
+        Name: !Sub "${AWS::StackName}-ClusterName"
+
+    TestServiceName:
+      Description: "Test ECS Service Name"
+      Value: !Ref TestECSService
+      Export:
+        Name: !Sub "${AWS::StackName}-ServiceName"
+
+    TestQueueUrl:
+      Description: "Test SQS Queue URL"
+      Value: !Ref TestSQSQueue
+      Export:
+        Name: !Sub "${AWS::StackName}-QueueUrl"
+
+    TestQueueArn:
+      Description: "Test SQS Queue ARN"
+      Value: !GetAtt TestSQSQueue.Arn
+      Export:
+        Name: !Sub "${AWS::StackName}-QueueArn"
+
+    ScalerFunctionName:
+      Description: "ECS Scaler Lambda Function Name"
+      Value: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:test-ecs-scaler"
+      Export:
+        Name: !Sub "${AWS::StackName}-ScalerFunction"

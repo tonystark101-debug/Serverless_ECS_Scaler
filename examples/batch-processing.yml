@@ -1,0 +1,40 @@
+# Batch Data Processing Example
+# High-concurrency configuration for batch workloads
+
+service: batch-processor-scaler
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-west-2
+  stage: production
+
+custom:
+  # Batch processing cluster configuration
+  ecsClusterName: 'batch-processing-cluster'
+  ecsServiceName: 'data-processor-service'
+  sqsQueueName: 'batch-processing-jobs'
+  
+  # High concurrency for batch jobs
+  scaleUpTarget: '10'
+  
+  # Quick scale-down for cost optimization
+  scaleDownThreshold: '1'
+  
+  # Standard monitoring frequency
+  monitoringRate: 'rate(1 minute)'
+
+# Import the base configuration
+extends: ../serverless.yml
+
+functions:
+  ecsScaler:
+    # Optimized for batch processing
+    timeout: 30
+    memorySize: 128
+    
+    environment:
+      # Additional environment variables for batch processing
+      BATCH_SIZE_THRESHOLD: '100'
+      MAX_CONCURRENT_TASKS: '10'
+

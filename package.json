@@ -1,0 +1,117 @@
+{
+  "name": "serverless-ecs-scaler",
+  "version": "1.0.0",
+  "description": "Fast, cost-effective ECS auto-scaling with Lambda and SQS. Scale-to-zero in seconds, not minutes.",
+  "main": "src/scaler.py",
+  "scripts": {
+    "test": "pytest tests/ -v --cov=src --cov-report=html --cov-report=term",
+    "test:unit": "pytest tests/test_scaler.py -v",
+    "test:integration": "pytest tests/test_integration.py -v -m integration",
+    "test:coverage": "pytest tests/ --cov=src --cov-report=html --cov-report=term",
+    "lint": "flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics && flake8 src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics",
+    "format": "black src/ tests/ && isort src/ tests/",
+    "format:check": "black --check src/ tests/ && isort --check-only src/ tests/",
+    "security": "safety check && bandit -r src/ -f json -o bandit-report.json",
+    "pre-commit": "pre-commit run --all-files",
+    "install:hooks": "pre-commit install",
+    "deploy:dev": "serverless deploy --stage dev --verbose",
+    "deploy:prod": "serverless deploy --stage prod --verbose",
+    "remove": "serverless remove --verbose",
+    "logs": "serverless logs -f ecsScaler --tail",
+    "info": "serverless info",
+    "help": "serverless --help"
+  },
+  "keywords": [
+    "aws",
+    "ecs",
+    "fargate",
+    "auto-scaling",
+    "serverless",
+    "lambda",
+    "sqs",
+    "eventbridge",
+    "cloudwatch",
+    "cost-optimization",
+    "scale-to-zero",
+    "infrastructure-as-code",
+    "terraform-alternative",
+    "aws-lambda",
+    "aws-ecs",
+    "aws-sqs"
+  ],
+  "author": {
+    "name": "Serverless ECS Scaler Contributors",
+    "url": "https://github.com/your-org/serverless-ecs-scaler"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/serverless-ecs-scaler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/serverless-ecs-scaler/issues"
+  },
+  "homepage": "https://github.com/your-org/serverless-ecs-scaler#readme",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "serverless": "^3.38.0",
+    "serverless-step-functions": "^3.12.0",
+    "serverless-python-requirements": "^6.0.0",
+    "serverless-plugin-log-retention": "^2.0.0",
+    "serverless-plugin-aws-alerts": "^1.2.0",
+    "serverless-plugin-common-excludes": "^1.0.0",
+    "serverless-plugin-include-dependencies": "^5.0.0"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "serverless": ">=3.0.0"
+  },
+  "optionalDependencies": {},
+  "bundledDependencies": [],
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "src/",
+    "serverless.yml",
+    "requirements.txt",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "examples/",
+    "docs/",
+    "scripts/",
+    "Makefile"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/your-org"
+  },
+  "contributors": [
+    {
+      "name": "Your Name",
+      "email": "your.email@example.com",
+      "url": "https://github.com/your-username"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "Your Name",
+      "email": "your.email@example.com",
+      "url": "https://github.com/your-username"
+    }
+  ]
+}

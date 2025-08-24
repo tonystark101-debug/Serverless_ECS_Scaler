@@ -1,0 +1,35 @@
+# Video Processing Pipeline Example
+# High-performance configuration for video analysis workloads
+
+service: video-processor-scaler
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  stage: production
+
+custom:
+  # Video processing typically needs higher concurrency
+  ecsClusterName: 'video-processing-cluster'
+  ecsServiceName: 'video-analysis-service'
+  sqsQueueName: 'video-processing-jobs'
+  
+  # Scale up to 5 tasks for parallel video processing
+  scaleUpTarget: '5'
+  
+  # Wait 3 minutes before scaling down (videos take time to process)
+  scaleDownThreshold: '3'
+  
+  # More frequent monitoring for responsive scaling
+  monitoringRate: 'rate(1 minute)'
+
+# Import the base configuration
+extends: ../serverless.yml
+
+functions:
+  ecsScaler:
+    # Override for video processing workloads
+    timeout: 60  # Longer timeout for complex scaling decisions
+    memorySize: 256  # More memory for video metadata processing
+

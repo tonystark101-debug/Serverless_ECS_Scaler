@@ -1,0 +1,130 @@
+service: serverless-ecs-scaler
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  
+  # IAM permissions for the Lambda function
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - ecs:DescribeServices
+            - ecs:UpdateService
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - sqs:GetQueueAttributes
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+          Resource: 
+            - ${self:custom.sqsQueueArn}
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+
+custom:
+  # Configuration - Update these values for your specific setup
+  ecsClusterName: ${opt:cluster, 'your-cluster-name'}
+  ecsServiceName: ${opt:service, 'your-service-name'}
+  sqsQueueName: ${opt:queue, 'your-queue-name'}
+  sqsQueueArn: 'arn:aws:sqs:${self:provider.region}:#{AWS::AccountId}:${self:custom.sqsQueueName}'
+  
+  # Scaling configuration
+  scaleUpTarget: ${opt:scale-up-target, '1'}
+  scaleDownThreshold: ${opt:scale-down-threshold, '2'}
+  
+  # Monitoring frequency (minimum 1 minute for EventBridge)
+  monitoringRate: ${opt:monitoring-rate, 'rate(1 minute)'}
+
+plugins:
+  - serverless-pseudo-parameters
+
+functions:
+  ecsScaler:
+    handler: src/scaler.lambda_handler
+    name: ${self:service}-${self:provider.stage}-scaler
+    description: Fast ECS auto-scaler based on SQS queue depth
+    timeout: 30
+    memorySize: 128
+    
+    environment:
+      SQS_QUEUE_URL: 
+        Ref: SQSQueue
+      ECS_CLUSTER_NAME: ${self:custom.ecsClusterName}
+      ECS_SERVICE_NAME: ${self:custom.ecsServiceName}
+      SCALE_UP_TARGET: ${self:custom.scaleUpTarget}
+      SCALE_DOWN_THRESHOLD: ${self:custom.scaleDownThreshold}
+    
+    events:
+      # EventBridge trigger for periodic monitoring (scale-down logic)
+      - schedule:
+          rate: ${self:custom.monitoringRate}
+          description: Monitor queue and scale ECS service
+      
+      # SQS trigger for immediate scale-up
+      - sqs:
+          arn:
+            Fn::GetAtt: [SQSQueue, Arn]
+          batchSize: 1
+          enabled: true
+
+resources:
+  Resources:
+    # SQS Queue for job messages
+    SQSQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.sqsQueueName}
+        VisibilityTimeout: 900  # 15 minutes
+        MessageRetentionPeriod: 1209600  # 14 days
+        ReceiveMessageWaitTimeSeconds: 20  # Enable long polling
+        
+        # Dead Letter Queue for failed messages
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt: [SQSDeadLetterQueue, Arn]
+          maxReceiveCount: 3
+    
+    # Dead Letter Queue for troubleshooting
+    SQSDeadLetterQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.sqsQueueName}-dlq
+        MessageRetentionPeriod: 1209600  # 14 days
+    
+    # CloudWatch Log Group with retention
+    ScalerLogGroup:
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: /aws/lambda/${self:service}-${self:provider.stage}-scaler
+        RetentionInDays: 14
+
+  Outputs:
+    SQSQueueUrl:
+      Description: The URL of the SQS queue
+      Value:
+        Ref: SQSQueue
+      Export:
+        Name: ${self:service}-${self:provider.stage}-queue-url
+    
+    SQSQueueArn:
+      Description: The ARN of the SQS queue
+      Value:
+        Fn::GetAtt: [SQSQueue, Arn]
+      Export:
+        Name: ${self:service}-${self:provider.stage}-queue-arn
+    
+    LambdaFunctionArn:
+      Description: The ARN of the scaler Lambda function
+      Value:
+        Fn::GetAtt: [EcsScalerLambdaFunction, Arn]
+      Export:
+        Name: ${self:service}-${self:provider.stage}-lambda-arn
+

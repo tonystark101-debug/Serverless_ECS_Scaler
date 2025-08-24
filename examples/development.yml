@@ -1,0 +1,51 @@
+# Development Environment Example
+# Cost-optimized configuration for development and testing
+
+service: dev-scaler
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  stage: dev
+
+custom:
+  # Development cluster configuration
+  ecsClusterName: 'dev-cluster'
+  ecsServiceName: 'dev-worker-service'
+  sqsQueueName: 'dev-jobs'
+  
+  # Single task for development
+  scaleUpTarget: '1'
+  
+  # Aggressive scale-down for cost savings
+  scaleDownThreshold: '1'
+  
+  # Standard monitoring
+  monitoringRate: 'rate(1 minute)'
+
+# Import the base configuration
+extends: ../serverless.yml
+
+functions:
+  ecsScaler:
+    # Minimal configuration for development
+    timeout: 30
+    memorySize: 128
+    
+    environment:
+      # Development-specific settings
+      LOG_LEVEL: 'DEBUG'
+      DEV_MODE: 'true'
+
+resources:
+  Resources:
+    # Override SQS settings for development
+    SQSQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:custom.sqsQueueName}
+        VisibilityTimeout: 300  # Shorter timeout for dev
+        MessageRetentionPeriod: 86400  # 1 day retention
+        ReceiveMessageWaitTimeSeconds: 20
+
