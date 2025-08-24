@@ -405,7 +405,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - 🐛 **Bug Reports**: [GitHub Issues](https://github.com/tonystark101-debug/Serverless_ECS_Scaler/issues)
 - 💡 **Feature Requests**: [GitHub Issues](https://github.com/tonystark101-debug/Serverless_ECS_Scaler/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/tonystark101-debug/Serverless_ECS_Scaler/discussions)
 - 📚 **Documentation**: [Implementation Guide](IMPLEMENTATION.md) | [Testing Guide](TESTING.md)
 - 📧 **Email**: thanosqpq@gmail.com
 
