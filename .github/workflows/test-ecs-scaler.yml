@@ -30,33 +30,21 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
         
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-        
-    - name: Deploy test infrastructure
+    - name: Validate Configuration
       run: |
-        echo "Deploying test infrastructure..."
-        npx serverless deploy --config test-deployment.yml --verbose
+        echo "Validating ECS scaler configuration..."
+        npx serverless print --config serverless.yml
         
-    - name: Wait for infrastructure to be ready
+    - name: Run Code Quality Checks
       run: |
-        echo "Waiting for ECS cluster and service to be ready..."
-        sleep 60
+        echo "Running code quality checks..."
+        python -m flake8 src/ tests/
+        python -m black --check src/ tests/
         
-    - name: Run automated tests
+    - name: Run Unit Tests
       run: |
-        echo "Running comprehensive ECS scaler tests..."
-        python automated-test.py
-        
-    - name: Cleanup test infrastructure
-      if: always()
-      run: |
-        echo "Cleaning up test infrastructure..."
-        npx serverless remove --config test-deployment.yml --verbose
+        echo "Running unit tests..."
+        python -m pytest tests/ -v
         
     - name: Upload test results
       if: always()

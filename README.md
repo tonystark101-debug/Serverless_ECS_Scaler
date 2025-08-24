@@ -157,11 +157,22 @@ serverless deploy \
 
 **Total: ~$0.86/month** vs. paying for idle ECS tasks
 
-### Cost Savings Example
+### 🎯 **Perfect for GPU Workloads**
 
-- **Before**: ECS service with 1 task running 24/7 = $25-50/month idle cost
+This scaler is **especially valuable for GPU instances** that cost hundreds/thousands per month when idle:
+
+- **T4 GPU (g4dn)**: Save $150-200/month
+- **A10G GPU (g5)**: Save $300-400/month  
+- **V100 GPU (p3)**: Save $600-800/month
+- **A100 GPU (p4d)**: Save $3,000-4,000/month
+
+### Cost Savings Example (GPU Instances)
+
+- **Before**: ECS service with GPU instance running 24/7 = $150-4,000/month idle cost
 - **After**: Scale-to-zero + scaler costs = $0.86/month
-- **Savings**: $24-49/month per service
+- **Savings**: $149-3,999/month per service
+
+**This is especially valuable for GPU workloads** where idle instances cost hundreds or thousands per month!
 
 ## 🧪 Testing
 
