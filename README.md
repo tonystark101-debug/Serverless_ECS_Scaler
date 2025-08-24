@@ -403,9 +403,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/yourusername/serverless-ecs-scaler/issues)
-- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/yourusername/serverless-ecs-scaler/discussions)
-- 📧 **Email**: support@yourproject.com
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/tonystark101-debug/Serverless_ECS_Scaler/issues)
+- 💡 **Feature Requests**: [GitHub Issues](https://github.com/tonystark101-debug/Serverless_ECS_Scaler/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/tonystark101-debug/Serverless_ECS_Scaler/discussions)
+- 📚 **Documentation**: [Implementation Guide](IMPLEMENTATION.md) | [Testing Guide](TESTING.md)
+- 📧 **Email**: thanosqpq@gmail.com
 
 ---
 
